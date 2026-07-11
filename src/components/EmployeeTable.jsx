@@ -9,7 +9,7 @@ function EmployeeTable({
   searchQuery, 
   setSearchQuery, 
   onAddClick, 
-  onExportCSV, 
+  onExportExcel, 
   loading, 
   totals 
 }) {
@@ -35,7 +35,7 @@ function EmployeeTable({
           <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 transform -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Cari nama atau NIP pegawai..."
+            placeholder="Cari nama pegawai..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-neutral-50/50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-neutral-400"
@@ -53,12 +53,12 @@ function EmployeeTable({
           </button>
           
           <button
-            onClick={onExportCSV}
+            onClick={onExportExcel}
             disabled={!employees.length}
             className="flex items-center gap-1.5 px-4 py-2 bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 rounded-xl text-xs font-semibold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>Export Excel (CSV)</span>
+            <span>Export Excel (.xlsx)</span>
           </button>
         </div>
       </div>
@@ -74,17 +74,30 @@ function EmployeeTable({
           Tidak ada data pegawai. {searchQuery ? 'Ganti kata pencarian.' : 'Klik "+ Tambah Pegawai" untuk memulai.'}
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+          {/* Petunjuk Geser Kanan (Hanya Muncul di Mobile/Tablet) */}
+          <div className="block lg:hidden bg-amber-50/40 border-b border-amber-100/40 px-5 py-2">
+            <div className="flex items-center justify-between text-[11px] font-medium text-amber-800">
+              <span className="flex items-center gap-1">
+                <span>👉 Geser tabel ke kanan untuk melihat seluruh detail pegawai (Golongan, Pajak, SPJ, dll)</span>
+              </span>
+              <span className="font-bold text-amber-600">↔</span>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-neutral-50/50 border-b border-neutral-100 text-neutral-500 text-xs font-bold uppercase tracking-wider">
                 <th className="py-4 px-6 text-center w-16">NO</th>
-                <th className="py-4 px-6">NAMA / NIP</th>
-                <th className="py-4 px-6 text-center w-28">GOL</th>
-                <th className="py-4 px-6 text-center w-28">MASA KERJA</th>
-                <th className="py-4 px-6 text-center w-36">HARI MASUK</th>
-                <th className="py-4 px-6 text-center w-36">HARI EFEKTIF</th>
-                <th className="py-4 px-6 text-right w-44">SPJ BERSIH</th>
+                <th className="py-4 px-6">NAMA PEGAWAI</th>
+                <th className="py-4 px-6 text-center w-24">GOL</th>
+                <th className="py-4 px-6 text-center w-24">MASA KERJA</th>
+                <th className="py-4 px-6 text-center w-28">HARI MASUK</th>
+                <th className="py-4 px-6 text-center w-28">HARI EFEKTIF</th>
+                <th className="py-4 px-6 text-right w-36">SPJ BRUTO</th>
+                <th className="py-4 px-6 text-right w-36">PPH 21 (PAJAK)</th>
+                <th className="py-4 px-6 text-right w-36">SPJ BERSIH</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -95,29 +108,28 @@ function EmployeeTable({
                     {idx + 1}
                   </td>
                   
-                  {/* 2. NAMA / NIP */}
+                  {/* 2. NAMA PEGAWAI */}
                   <td className="py-4 px-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="font-semibold text-neutral-900 text-sm">{emp.nama}</div>
-                        <div className="text-[11px] text-neutral-400 font-medium tracking-wide mt-0.5">{emp.nip}</div>
                       </div>
                       
-                      {/* Hover Row Actions */}
-                      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity ml-4">
+                      {/* Row Actions */}
+                      <div className="flex items-center gap-1.5 transition-opacity ml-4 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 shrink-0">
                         <button
                           onClick={() => onEditEmployee(emp)}
-                          className="p-1.5 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 lg:p-1.5 lg:text-neutral-400 rounded-lg transition-colors cursor-pointer"
                           title="Edit Detail Pegawai"
                         >
-                          <Settings className="w-3.5 h-3.5" />
+                          <Settings className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
                         </button>
                         <button
                           onClick={() => onDeleteEmployee(emp.id, emp.nama)}
-                          className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-neutral-500 hover:text-rose-600 hover:bg-rose-50 lg:p-1.5 lg:text-neutral-400 rounded-lg transition-colors cursor-pointer"
                           title="Hapus Pegawai"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -162,6 +174,17 @@ function EmployeeTable({
                     </span>
                   </td>
                   
+                  {/* 5.1 SPJ BRUTO */}
+                  <td className="py-4 px-6 text-right font-semibold text-neutral-600 text-sm">
+                    {formatRupiah(emp.bruto || 0)}
+                  </td>
+
+                  {/* 5.2 PPH 21 */}
+                  <td className="py-4 px-6 text-right text-sm">
+                    <div className="font-semibold text-rose-600/90">{formatRupiah(emp.taxAmount || 0)}</div>
+                    <div className="text-[10px] text-neutral-400 font-medium">({emp.taxRate || 0}%)</div>
+                  </td>
+                  
                   {/* 6. SPJ BERSIH */}
                   <td className="py-4 px-6 text-right font-bold text-neutral-800 text-sm">
                     {formatRupiah(emp.spjBersih)}
@@ -177,11 +200,14 @@ function EmployeeTable({
                 <td className="py-4 px-6"></td>
                 <td className="py-4 px-6 text-center text-sm text-neutral-600">{totals.totalHariMasuk} hr</td>
                 <td className="py-4 px-6"></td>
-                <td className="py-4 px-6 text-right text-emerald-600 text-base">{formatRupiah(totals.totalNetto)}</td>
+                <td className="py-4 px-6 text-right text-neutral-700 text-sm">{formatRupiah(totals.totalBruto || 0)}</td>
+                <td className="py-4 px-6 text-right text-rose-600 text-sm">{formatRupiah(totals.totalTax || 0)}</td>
+                <td className="py-4 px-6 text-right text-emerald-600 text-base">{formatRupiah(totals.totalNetto || 0)}</td>
               </tr>
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* Bottom info section */}

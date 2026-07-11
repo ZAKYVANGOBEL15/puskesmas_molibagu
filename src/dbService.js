@@ -6,7 +6,8 @@ import {
   doc, 
   setDoc, 
   deleteDoc, 
-  writeBatch 
+  writeBatch,
+  onSnapshot
 } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
@@ -29,8 +30,9 @@ export const MONTHLY_JASPEL = {
 // Default initial settings based on real PMK 6 / Excel values
 const DEFAULT_SETTINGS = {
   password: 'jm',            // Password login ke dasbor
-  totalDanaJaspel: 52000132, // Jasa Medis 60% - JANUARI (dari Data Master)
+  totalDanaJaspel: 52000133, // Total Dana Jasa Medis aktif (60% dari Kapitasi Jan)
   bulanAktif: 'JANUARI',    // Bulan yang sedang dihitung
+  tahunAktif: '2026',        // Tahun aktif default
   hariEfektifDefault: 22,
   hariEfektifPerBulan: {
     "JANUARI": 22,
@@ -46,18 +48,68 @@ const DEFAULT_SETTINGS = {
     "NOVEMBER": 22,
     "DESEMBER": 22
   },
+  monthlyKapitasi: {
+    'JANUARI':  86666888,
+    'FEBRUARI': 76808465,
+    'MARET':    81584063,
+    'APRIL':    68620079,
+    'MEI':      68498368,
+    'JUNI':     0,
+    'JULI':     0,
+    'AGUSTUS':  0,
+    'SEPTEMBER':0,
+    'OKTOBER':  0,
+    'NOVEMBER': 0,
+    'DESEMBER': 0
+  },
+  monthlySilpa: {
+    'JANUARI':  0,
+    'FEBRUARI': 0,
+    'MARET':    0,
+    'APRIL':    0,
+    'MEI':      0,
+    'JUNI':     0,
+    'JULI':     0,
+    'AGUSTUS':  0,
+    'SEPTEMBER':0,
+    'OKTOBER':  0,
+    'NOVEMBER': 0,
+    'DESEMBER': 0
+  },
   poinMasaKerjaMultiplier: 0, // 0 means use the table-based ranges by default
   poinPendidikan: {
-    'Dokter Spesialis / Dokter / Dokter Gigi': 150,
-    'S1 Ners / Apoteker': 100,
-    'S1 Kesehatan (SKM, S.Kep, S.Keb)': 80,
-    'D3 Kesehatan (A.Md.Kep, A.Md.Keb, dll)': 60,
-    'Staf Non-Kesehatan (SMA / D3 / S1 Adm)': 30
+    'D3': 60,
+    'D3/NON-KES': 50,
+    'D3/PENSUS-NS': 30,
+    'D4': 80,
+    'D4/NON-KES': 60,
+    'S1': 80,
+    'S1/NERS': 100,
+    'S1 / GZ': 80,
+    'S1/NON-KES': 60,
+    'AST-KES': 50,
+    'S1/DOKTER': 150,
+    'S1/DOKTER-NS': 75,
+    'S1/APOTEKER': 100,
+    'SMA': 25,
+    'SMK': 25,
+    'D3/NON-STR': 15,
+    'D3/STR-ED': 30,
+    'D4/NON-STR': 15,
+    'D4/STR-ED': 30,
+    'S1/NON-STR': 15,
+    'S1/STR-ED': 30,
+    'S1/PENSUS-NS': 50,
+    'PROG-INTERN': 75
   },
   poinGolongan: {
-    'IV/a': 0, 'IV/b': 0, 'IV/c': 0, 'IV/d': 0, 'IV/e': 0,
-    'III/a': 0, 'III/b': 0, 'III/c': 0, 'III/d': 0,
-    'II/a': 0, 'II/b': 0, 'II/c': 0, 'II/d': 0,
+    'IV': 0,
+    'III': 0,
+    'II': 0,
+    'I': 0,
+    'IX': 0,
+    'VIII': 0,
+    'VII': 0,
     'Non-PNS': 0
   },
   poinTugasTambahan: {
@@ -75,6 +127,37 @@ const DEFAULT_SETTINGS = {
     'Non-PNS': 0
   }
 };
+
+function filterPoinPendidikan(data) {
+  const filtered = {};
+  for (const key of Object.keys(DEFAULT_SETTINGS.poinPendidikan)) {
+    if (data && data[key] !== undefined) {
+      filtered[key] = data[key];
+    } else {
+      filtered[key] = DEFAULT_SETTINGS.poinPendidikan[key];
+    }
+  }
+  return filtered;
+}
+
+function filterPoinGolongan(data) {
+  const filtered = {};
+  for (const key of Object.keys(DEFAULT_SETTINGS.poinGolongan)) {
+    if (data && data[key] !== undefined) {
+      filtered[key] = data[key];
+    } else {
+      filtered[key] = DEFAULT_SETTINGS.poinGolongan[key];
+    }
+  }
+  return filtered;
+}
+
+function filterPoinTugasTambahan(data) {
+  if (!data || Object.keys(data).length === 0) {
+    return { ...DEFAULT_SETTINGS.poinTugasTambahan };
+  }
+  return { ...data };
+}
 
 // Try to initialize Firebase
 let db = null;
@@ -114,9 +197,7 @@ export function initializeFirebaseService() {
       isFirebaseActive = true;
       // Auto sign-in anonymously so Firestore rules (request.auth != null) are satisfied
       signInAnonymously(auth)
-        .then(() => console.log('Firebase: Anonymous auth success.'))
         .catch(err => console.warn('Firebase: Anonymous auth failed:', err));
-      console.log('Firebase initialized successfully!');
       return true;
     } catch (err) {
       console.error('Failed to initialize Firebase:', err);
@@ -156,7 +237,26 @@ function syncSettingsFromFirebase() {
   if (!isFirebaseActive || !db) return;
   getDocs(collection(db, 'settings')).then(snap => {
     if (!snap.empty) {
-      const firebaseData = { ...DEFAULT_SETTINGS, ...snap.docs[0].data() };
+      const snapData = snap.docs[0].data() || {};
+      const firebaseData = {
+        ...DEFAULT_SETTINGS,
+        ...snapData,
+        poinPendidikan: filterPoinPendidikan(snapData.poinPendidikan),
+        poinGolongan: filterPoinGolongan(snapData.poinGolongan),
+        poinTugasTambahan: filterPoinTugasTambahan(snapData.poinTugasTambahan),
+        pph21Rates: {
+          ...DEFAULT_SETTINGS.pph21Rates,
+          ...(snapData.pph21Rates || {})
+        },
+        monthlyKapitasi: {
+          ...DEFAULT_SETTINGS.monthlyKapitasi,
+          ...(snapData.monthlyKapitasi || {})
+        },
+        monthlySilpa: {
+          ...DEFAULT_SETTINGS.monthlySilpa,
+          ...(snapData.monthlySilpa || {})
+        }
+      };
       localStorage.setItem('molibagu_settings', JSON.stringify(firebaseData));
     }
   }).catch(() => {});
@@ -170,7 +270,25 @@ export async function fetchSettings() {
     try {
       const parsed = JSON.parse(local);
       if (parsed && parsed.hasOwnProperty('poinPendidikan')) {
-        localSettings = { ...DEFAULT_SETTINGS, ...parsed };
+        localSettings = {
+          ...DEFAULT_SETTINGS,
+          ...parsed,
+          poinPendidikan: filterPoinPendidikan(parsed.poinPendidikan),
+          poinGolongan: filterPoinGolongan(parsed.poinGolongan),
+          poinTugasTambahan: filterPoinTugasTambahan(parsed.poinTugasTambahan),
+          pph21Rates: {
+            ...DEFAULT_SETTINGS.pph21Rates,
+            ...(parsed.pph21Rates || {})
+          },
+          monthlyKapitasi: {
+            ...DEFAULT_SETTINGS.monthlyKapitasi,
+            ...(parsed.monthlyKapitasi || {})
+          },
+          monthlySilpa: {
+            ...DEFAULT_SETTINGS.monthlySilpa,
+            ...(parsed.monthlySilpa || {})
+          }
+        };
       }
     } catch (e) {}
   } else {
@@ -184,7 +302,13 @@ export async function fetchSettings() {
 }
 
 export async function saveSettings(settings) {
-  const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
+  const mergedSettings = { 
+    ...DEFAULT_SETTINGS, 
+    ...settings,
+    poinPendidikan: filterPoinPendidikan(settings?.poinPendidikan),
+    poinGolongan: filterPoinGolongan(settings?.poinGolongan),
+    poinTugasTambahan: filterPoinTugasTambahan(settings?.poinTugasTambahan)
+  };
   localStorage.setItem('molibagu_settings', JSON.stringify(mergedSettings));
   
   if (isFirebaseActive && db) {
@@ -195,23 +319,110 @@ export async function saveSettings(settings) {
   return mergedSettings;
 }
 
+export function subscribeSettings(onUpdate) {
+  if (isFirebaseActive && db) {
+    return onSnapshot(collection(db, 'settings'), (snap) => {
+      if (!snap.empty) {
+        const configDoc = snap.docs.find(d => d.id === 'config') || snap.docs[0];
+        const snapData = configDoc.data() || {};
+        const firebaseData = {
+          ...DEFAULT_SETTINGS,
+          ...snapData,
+          poinPendidikan: filterPoinPendidikan(snapData.poinPendidikan),
+          poinGolongan: filterPoinGolongan(snapData.poinGolongan),
+          poinTugasTambahan: filterPoinTugasTambahan(snapData.poinTugasTambahan),
+          pph21Rates: {
+            ...DEFAULT_SETTINGS.pph21Rates,
+            ...(snapData.pph21Rates || {})
+          },
+          monthlyKapitasi: {
+            ...DEFAULT_SETTINGS.monthlyKapitasi,
+            ...(snapData.monthlyKapitasi || {})
+          },
+          monthlySilpa: {
+            ...DEFAULT_SETTINGS.monthlySilpa,
+            ...(snapData.monthlySilpa || {})
+          }
+        };
+        localStorage.setItem('molibagu_settings', JSON.stringify(firebaseData));
+        onUpdate(firebaseData);
+      }
+    }, (error) => {
+      console.error('Firebase settings subscription error:', error);
+    });
+  }
+  return null;
+}
+
+export function subscribeEmployees(onUpdate) {
+  if (isFirebaseActive && db) {
+    return onSnapshot(collection(db, 'employees'), async (snap) => {
+      let needsCleanup = false;
+      const cleanedDocs = [];
+      const batch = writeBatch(db);
+
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.nip && data.nip !== '-') {
+          needsCleanup = true;
+          const updated = { ...data, nip: '-' };
+          batch.set(doc(db, 'employees', d.id), updated);
+          cleanedDocs.push({ id: d.id, ...updated });
+        } else {
+          cleanedDocs.push({ id: d.id, ...data });
+        }
+      });
+
+      if (needsCleanup) {
+        try {
+          await batch.commit();
+        } catch (e) {
+          console.error('Firebase: Failed to auto-cleanup NIP:', e);
+        }
+      }
+
+      localStorage.setItem('molibagu_employees', JSON.stringify(cleanedDocs));
+      const sorted = cleanedDocs.sort((a, b) => (a.no || 99) - (b.no || 99));
+      onUpdate(sorted);
+    }, (error) => {
+      console.error('Firebase employees subscription error:', error);
+    });
+  }
+  return null;
+}
+
 // 2. Employees (Pegawai) operations
-// Sync employees from Firebase to localStorage silently in background
+// Sync employees from Firebase to localStorage silently in background, and automatically clean up/reset existing NIP values
 function syncEmployeesFromFirebase() {
   if (!isFirebaseActive || !db) return;
-  getDocs(collection(db, 'employees')).then(snap => {
+  getDocs(collection(db, 'employees')).then(async (snap) => {
     if (!snap.empty) {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      localStorage.setItem('molibagu_employees', JSON.stringify(list));
-    } else {
-      // Firebase empty: seed from local data
-      const local = localStorage.getItem('molibagu_employees');
-      let initialList = [];
-      if (local) { try { initialList = JSON.parse(local); } catch(e) {} }
-      if (!initialList || initialList.length === 0) {
-        // Data tidak tersedia — abaikan, data akan diinput manual
-        return;
+      let needsCleanup = false;
+      const cleanedDocs = [];
+      const batch = writeBatch(db);
+
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.nip && data.nip !== '-') {
+          needsCleanup = true;
+          const updated = { ...data, nip: '-' };
+          batch.set(doc(db, 'employees', d.id), updated);
+          cleanedDocs.push({ id: d.id, ...updated });
+        } else {
+          cleanedDocs.push({ id: d.id, ...data });
+        }
+      });
+
+      if (needsCleanup) {
+        try {
+          await batch.commit();
+          console.log('Firebase: NIP database has been cleaned up successfully in background.');
+        } catch (e) {
+          console.error('Firebase: Failed to auto-cleanup NIP in background:', e);
+        }
       }
+
+      localStorage.setItem('molibagu_employees', JSON.stringify(cleanedDocs));
     }
   }).catch(() => {});
 }
@@ -222,8 +433,21 @@ export async function fetchEmployees() {
   let localList = [];
   if (local) {
     try {
-      const parsed = JSON.parse(local);
+      let parsed = JSON.parse(local);
       if (parsed && parsed.length > 0) {
+        // Clean up NIP in local cache too
+        let cacheChanged = false;
+        parsed = parsed.map(emp => {
+          if (emp.nip && emp.nip !== '-') {
+            cacheChanged = true;
+            return { ...emp, nip: '-' };
+          }
+          return emp;
+        });
+        if (cacheChanged) {
+          localStorage.setItem('molibagu_employees', JSON.stringify(parsed));
+        }
+
         const isSchemaV3 = parsed.every(emp =>
           emp.hasOwnProperty('pendidikan') &&
           emp.hasOwnProperty('masaKerjaPerBulan') &&
@@ -333,18 +557,22 @@ export async function saveEmployeesBatch(updatedEmployees) {
 
 // 3. Mathematical calculation logic
 export function calculateJaspel(employees, settings) {
-  const { totalDanaJaspel, poinPendidikan, poinTugasTambahan, pph21Rates, bulanAktif } = settings;
+  const { totalDanaJaspel, poinPendidikan, poinGolongan = {}, poinTugasTambahan, pph21Rates, bulanAktif, tahunAktif } = settings;
   const bulan = bulanAktif || 'JANUARI';
+  const tahun = tahunAktif || '2026';
+  const compoundKey = `${tahun}_${bulan}`;
   
-  // Step 1: Calculate points for each employee
+  // Step 1: Calculate raw points (basePoints) for each employee
   const employeesWithPoints = employees.map(emp => {
-    // 1. Get Poin Pendidikan / Profesi
+    // 1. Get Poin Pendidikan / Profesi (Jenis Ketenagaan)
     const eduPoints = poinPendidikan[emp.pendidikan] || 30;
     
     // 2. Pick Masa Kerja for the active month, fallback to emp.masaKerja
-    const masaKerjaBulanIni = (emp.masaKerjaPerBulan && emp.masaKerjaPerBulan[bulan] != null)
-      ? emp.masaKerjaPerBulan[bulan]
-      : (emp.masaKerja || 0);
+    const masaKerjaBulanIni = (emp.masaKerjaPerBulan && emp.masaKerjaPerBulan[compoundKey] != null)
+      ? emp.masaKerjaPerBulan[compoundKey]
+      : (emp.masaKerjaPerBulan && emp.masaKerjaPerBulan[bulan] != null && tahun === '2026'
+          ? emp.masaKerjaPerBulan[bulan]
+          : (emp.masaKerja || 0));
     
     // 3. Get Poin Masa Kerja (Range-based table per Excel PMK)
     const years = Math.floor(masaKerjaBulanIni);
@@ -356,24 +584,30 @@ export function calculateJaspel(employees, settings) {
     else if (years >= 5) mkPoints = 5;
     else mkPoints = 2;
     
-    // 4. Get Poin Tugas Tambahan
+    // 4. Get Poin Tugas Tambahan (Rangkap Tugas Adm / Program)
     const ttPoints = poinTugasTambahan[emp.tugasTambahan] || 0;
     
-    // 5. Calculate Attendance Index per month
-    const hariMasukBulanIni = (emp.hariMasukPerBulan && emp.hariMasukPerBulan[bulan] != null)
-      ? emp.hariMasukPerBulan[bulan]
-      : (emp.hariMasuk != null ? emp.hariMasuk : settings.hariEfektifDefault);
+    // 5. Get Poin Golongan (Optional)
+    const golPoints = poinGolongan[emp.golongan] || 0;
+    
+    // 6. Calculate Attendance Index per month
+    const hariMasukBulanIni = (emp.hariMasukPerBulan && emp.hariMasukPerBulan[compoundKey] != null)
+      ? emp.hariMasukPerBulan[compoundKey]
+      : (emp.hariMasukPerBulan && emp.hariMasukPerBulan[bulan] != null && tahun === '2026'
+          ? emp.hariMasukPerBulan[bulan]
+          : (emp.hariMasuk != null ? emp.hariMasuk : (settings.hariEfektifPerBulan?.[compoundKey] || settings.hariEfektifPerBulan?.[bulan] || settings.hariEfektifDefault || 22)));
       
     // Hari Efektif selalu dari Settings per bulan aktif (dikunci, berlaku global untuk semua pegawai)
-    const hariEfektifBulanIni = (settings.hariEfektifPerBulan && settings.hariEfektifPerBulan[bulan] != null)
-      ? settings.hariEfektifPerBulan[bulan]
-      : (settings.hariEfektifDefault || 22);
+    const hariEfektifBulanIni = (settings.hariEfektifPerBulan && settings.hariEfektifPerBulan[compoundKey] != null)
+      ? settings.hariEfektifPerBulan[compoundKey]
+      : (settings.hariEfektifPerBulan && settings.hariEfektifPerBulan[bulan] != null && tahun === '2026'
+          ? settings.hariEfektifPerBulan[bulan]
+          : (settings.hariEfektifDefault || 22));
     
     const presenceIndex = hariEfektifBulanIni > 0 ? (hariMasukBulanIni / hariEfektifBulanIni) : 0;
     
-    // 6. Final Points = (Pendidikan + MasaKerja + TugasTambahan) * Kehadiran
-    const basePoints = eduPoints + mkPoints + ttPoints;
-    const finalPoints = Number((basePoints * presenceIndex).toFixed(3));
+    // Base points = Pendidikan + Masa Kerja + Tugas Tambahan + Golongan (matches "Jumlah Point" in Excel)
+    const basePoints = eduPoints + mkPoints + ttPoints + golPoints;
     
     return {
       ...emp,
@@ -383,26 +617,33 @@ export function calculateJaspel(employees, settings) {
       eduPoints,
       mkPoints,
       ttPoints,
+      golPoints,
       presenceIndex,
-      finalPoints
+      basePoints,
+      finalPoints: basePoints // "Jumlah Point" represents raw points in Excel (un-discounted by presence yet)
     };
   });
   
-  // Step 2: Sum all employee points
-  const totalPointsAll = employeesWithPoints.reduce((sum, emp) => sum + emp.finalPoints, 0);
+  // Step 2: Sum all employee raw base points (Total Jumlah Seluruh Point - column 15 in Excel)
+  const totalPointsAll = employeesWithPoints.reduce((sum, emp) => sum + emp.basePoints, 0);
   
-  // Step 3: Calculate Bruto, Pajak, and SPJ Bersih
+  // Step 3: Calculate Bruto, Pajak, and SPJ Bersih based on Excel formula
   return employeesWithPoints.map(emp => {
-    const bruto = totalPointsAll > 0 ? (emp.finalPoints / totalPointsAll) * totalDanaJaspel : 0;
+    // Persentase % = basePoints / totalPointsAll
+    const sharePercentage = totalPointsAll > 0 ? (emp.basePoints / totalPointsAll) : 0;
+    
+    // Bruto = Total Dana Jaspel * Persentase % * Kehadiran %
+    const bruto = totalDanaJaspel * sharePercentage * emp.presenceIndex;
     
     let pphGroup = 'Non-PNS';
-    if (emp.golongan.startsWith('IV')) {
+    const gol = emp.golongan || '';
+    if (gol === 'IV' || gol.startsWith('IV/')) {
       pphGroup = 'Golongan IV';
-    } else if (emp.golongan.startsWith('III')) {
+    } else if (gol === 'III' || gol.startsWith('III/') || gol === 'IX' || gol === 'VIII' || gol === 'VII') {
       pphGroup = 'Golongan III';
-    } else if (emp.golongan.startsWith('II')) {
+    } else if (gol === 'II' || gol.startsWith('II/')) {
       pphGroup = 'Golongan II';
-    } else if (emp.golongan.startsWith('I/')) {
+    } else if (gol === 'I' || gol.startsWith('I/')) {
       pphGroup = 'Golongan I';
     }
     
@@ -412,6 +653,7 @@ export function calculateJaspel(employees, settings) {
     
     return {
       ...emp,
+      sharePercentage: Number((sharePercentage * 100).toFixed(3)),
       bruto: Math.round(bruto),
       taxRate,
       taxAmount: Math.round(taxAmount),

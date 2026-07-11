@@ -1,8 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 function LockScreen({ passwordInput, setPasswordInput, handleLogin, authError }) {
   const [showPassword, setShowPassword] = useState(false);
+  const [localError, setLocalError] = useState('');
+
+  // Clear local error when user types and input is not empty
+  useEffect(() => {
+    if (passwordInput && passwordInput.trim() !== '') {
+      setLocalError('');
+    }
+  }, [passwordInput]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!passwordInput || passwordInput.trim() === '') {
+      setLocalError('Password wajib diisi!');
+      return;
+    }
+    setLocalError('');
+    handleLogin(e);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-radial from-[#ffffff] to-[#f4f4f5]">
@@ -13,13 +31,13 @@ function LockScreen({ passwordInput, setPasswordInput, handleLogin, authError })
         </div>
         
         <h1 className="text-2xl font-bold tracking-tight text-neutral-900 mb-1">
-          SISTEM DANA KAPITASI
+          SISTEM KAPITASI & JASA MEDIS JKN
         </h1>
         <p className="text-sm text-neutral-500 font-normal mb-8">
           UPTD Puskesmas Molibagu • Kab. Bolsel
         </p>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
@@ -27,7 +45,7 @@ function LockScreen({ passwordInput, setPasswordInput, handleLogin, authError })
               onChange={(e) => setPasswordInput(e.target.value)}
               placeholder="Ketik password privat..."
               className={`w-full pl-12 pr-12 py-3.5 bg-neutral-50 border rounded-2xl focus:outline-none focus:ring-2 text-center text-lg tracking-widest placeholder:tracking-normal placeholder:text-neutral-400 transition-all ${
-                authError 
+                authError || localError
                   ? 'border-rose-300 focus:ring-rose-500/20 focus:border-rose-500' 
                   : 'border-neutral-200 focus:ring-emerald-500/20 focus:border-emerald-500'
               }`}
@@ -45,7 +63,13 @@ function LockScreen({ passwordInput, setPasswordInput, handleLogin, authError })
             </button>
           </div>
 
-          {authError && (
+          {localError && (
+            <p className="text-xs text-rose-500 font-medium flex items-center justify-center gap-1 animate-fade-in">
+              <AlertCircle className="w-3.5 h-3.5" /> {localError}
+            </p>
+          )}
+
+          {authError && !localError && (
             <p className="text-xs text-rose-500 font-medium flex items-center justify-center gap-1">
               <AlertCircle className="w-3.5 h-3.5" /> Password salah! Silakan coba lagi.
             </p>
@@ -59,8 +83,8 @@ function LockScreen({ passwordInput, setPasswordInput, handleLogin, authError })
           </button>
         </form>
 
-        <div className="mt-12 text-[11px] text-neutral-400 tracking-wider font-medium">
-          POWERED BY ANTIGRAVITY AI • VERSI ONLINE 2026
+        <div className="mt-12 text-[11px] text-neutral-400 tracking-wider font-medium uppercase">
+          © 2026 UPTD Puskesmas Molibagu • Hak Cipta Dilindungi
         </div>
       </div>
     </div>

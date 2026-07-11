@@ -2,12 +2,21 @@ import React from 'react';
 import { UserPlus, X } from 'lucide-react';
 
 function AddEmployeeModal({ isOpen, onClose, onSubmit, newEmployee, setNewEmployee, settings }) {
+  React.useEffect(() => {
+    if (isOpen && settings && settings.poinTugasTambahan) {
+      const keys = Object.keys(settings.poinTugasTambahan);
+      if (keys.length > 0 && !keys.includes(newEmployee.tugasTambahan)) {
+        setNewEmployee(prev => ({ ...prev, tugasTambahan: keys[0] }));
+      }
+    }
+  }, [isOpen, settings, newEmployee.tugasTambahan, setNewEmployee]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/40 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg border border-neutral-100 overflow-hidden">
-        <div className="px-6 py-5 border-b border-neutral-100 flex items-center justify-between">
+      <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg border border-neutral-100 flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="px-6 py-5 border-b border-neutral-100 flex items-center justify-between shrink-0">
           <h3 className="font-bold text-neutral-950 text-base flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-emerald-600" />
             Tambah Pegawai Baru
@@ -20,9 +29,9 @@ function AddEmployeeModal({ isOpen, onClose, onSubmit, newEmployee, setNewEmploy
           </button>
         </div>
         
-        <form onSubmit={onSubmit} className="p-6 space-y-4">
+        <form onSubmit={onSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5 col-span-2">
+            <div className="space-y-1.5 col-span-1 md:col-span-2">
               <label className="text-xs font-semibold text-neutral-500">Nama Lengkap</label>
               <input
                 type="text"
@@ -34,22 +43,10 @@ function AddEmployeeModal({ isOpen, onClose, onSubmit, newEmployee, setNewEmploy
               />
             </div>
 
-            <div className="space-y-1.5 col-span-2">
-              <label className="text-xs font-semibold text-neutral-500">NIP / Identitas Pegawai</label>
-              <input
-                type="text"
-                required
-                placeholder="Ketik NIP atau kode Non-PNS..."
-                value={newEmployee.nip}
-                onChange={(e) => setNewEmployee({ ...newEmployee, nip: e.target.value })}
-                className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-              />
-            </div>
-
-            <div className="space-y-1.5 col-span-2">
+            <div className="space-y-1.5 col-span-1 md:col-span-2">
               <label className="text-xs font-semibold text-neutral-500">Pendidikan / Profesi (Poin Dasar)</label>
               <select
-                value={newEmployee.pendidikan || 'S1 Kesehatan (SKM, S.Kep, S.Keb)'}
+                value={newEmployee.pendidikan || 'S1'}
                 onChange={(e) => setNewEmployee({ ...newEmployee, pendidikan: e.target.value })}
                 className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
               >
@@ -84,7 +81,7 @@ function AddEmployeeModal({ isOpen, onClose, onSubmit, newEmployee, setNewEmploy
               />
             </div>
 
-            <div className="space-y-1.5 col-span-2">
+            <div className="space-y-1.5 col-span-1 md:col-span-2">
               <label className="text-xs font-semibold text-neutral-500">Tugas Tambahan / Jabatan</label>
               <select
                 value={newEmployee.tugasTambahan}
@@ -98,7 +95,7 @@ function AddEmployeeModal({ isOpen, onClose, onSubmit, newEmployee, setNewEmploy
             </div>
           </div>
 
-          <div className="pt-4 border-t border-neutral-100 flex items-center justify-end gap-2">
+          <div className="pt-4 border-t border-neutral-100 flex items-center justify-end gap-2 shrink-0">
             <button
               type="button"
               onClick={onClose}

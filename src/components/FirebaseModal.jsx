@@ -14,8 +14,8 @@ function FirebaseModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/40 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg border border-neutral-100 overflow-hidden">
-        <div className="px-6 py-5 border-b border-neutral-100 flex items-center justify-between">
+      <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg border border-neutral-100 flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="px-6 py-5 border-b border-neutral-100 flex items-center justify-between shrink-0">
           <h3 className="font-bold text-neutral-950 text-base flex items-center gap-2">
             <Database className="w-5 h-5 text-emerald-600" />
             Integrasi Cloud (Firebase)
@@ -28,8 +28,8 @@ function FirebaseModal({
           </button>
         </div>
         
-        <form onSubmit={onSubmit} className="p-6 space-y-4">
-          <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-100 text-xs text-neutral-500 leading-relaxed">
+        <form onSubmit={onSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+          <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-100 text-xs text-neutral-500 leading-relaxed shrink-0">
             Aplikasi ini mendukung penyimpanan Cloud Firebase gratis untuk menyinkronkan data antar perangkat. Jika dibiarkan kosong, data disimpan secara offline pada browser lokal Anda.
           </div>
 
@@ -51,7 +51,7 @@ function FirebaseModal({
                 <input
                   type="text"
                   value={firebaseConfig.projectId}
-                  onChange={(e) => setFirebaseConfig({ ...firebaseConfig, projectId: e.target.value })}
+                  onChange={(e) => setSettings ? setFirebaseConfig({ ...firebaseConfig, projectId: e.target.value }) : setFirebaseConfig({ ...firebaseConfig, projectId: e.target.value })}
                   placeholder="puskesmas-molibagu"
                   className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                 />
@@ -80,7 +80,7 @@ function FirebaseModal({
             </div>
           </div>
 
-          <div className="pt-4 border-t border-neutral-100 flex items-center justify-between gap-2">
+          <div className="pt-4 border-t border-neutral-100 flex items-center justify-between gap-2 shrink-0">
             {isFirebaseConnected ? (
               <button
                 type="button"

@@ -1,0 +1,5 @@
+{
+  "name": "Sistem Dana Kapitasi",
+  "description": "Sistem Manajemen Real-time Pembagian Dana Kapitasi Jasa Pelayanan JKN UPTD Puskesmas Molibagu",
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

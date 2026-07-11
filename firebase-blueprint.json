@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "Setting": {
+      "title": "Setting",
+      "description": "Application settings and configurations including monthly Kapitasi, Silpa, and jaspel/jasa medis pools.",
+      "type": "object",
+      "properties": {
+        "password": { "type": "string" },
+        "totalDanaJaspel": { "type": "integer" },
+        "bulanAktif": { "type": "string" },
+        "tahunAktif": { "type": "string" },
+        "hariEfektifDefault": { "type": "integer" }
+      }
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "Puskesmas employee with their scoring points, NIP, education, attendance, and duties.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "no": { "type": "integer" },
+        "name": { "type": "string" },
+        "nip": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "settings/{settingId}": {
+      "schema": "Setting",
+      "description": "Storage for settings documents"
+    },
+    "employees/{employeeId}": {
+      "schema": "Employee",
+      "description": "List of active employees"
+    }
+  }
+}
